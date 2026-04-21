@@ -129,7 +129,7 @@ jobs:
   compare:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [fetch-env-a-configs, fetch-env-b-configs]
+    needs: [fetch-${{ inputs.env_a }}-configs, fetch-${{ inputs.env_b }}-configs]
 
     steps:
       - uses: actions/checkout@v4
