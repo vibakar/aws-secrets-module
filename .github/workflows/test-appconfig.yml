@@ -38,7 +38,7 @@ env:
 
 jobs:
   fetch-env-a-configs:
-    runs-on: build-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-${{ inputs.env_a }}
 
@@ -82,7 +82,7 @@ jobs:
             ${{ inputs.env_a }}_feature_flags.json
 
   fetch-env-b-configs:
-    runs-on: build-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-prd
 
@@ -127,7 +127,7 @@ jobs:
             prd_feature_flags.json
 
   compare:
-    runs-on: build-runner
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [fetch-env-a-configs, fetch-env-b-configs]
 
