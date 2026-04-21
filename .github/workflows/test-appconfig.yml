@@ -1,0 +1,158 @@
+name: Test AppConfig Comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      env_a:
+        description: 'Source environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - tst
+          - pprd
+          - prd
+        default: pprd
+
+      env_b:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - tst
+          - pprd
+          - prd
+        default: prd
+permissions:
+  id-token: write
+  contents: read
+env:
+  AWS_REGION: 'eu-central-1'
+  PPRD_APPCONFIG_APPLICATION_ID: 'jd-com-${{ inputs.env_a }}'
+  PPRD_APPCONFIG_ENVIRONMENT_ID: 'pprd'
+  PRD_APPCONFIG_APPLICATION_ID: 'jd-com-${{ inputs.env_b }}'
+  PRD_APPCONFIG_ENVIRONMENT_ID: 'prd'
+  FREEFORM_PROFILE_ID: 'freeform-config'
+  FEATUREFLAGS_PROFILE_ID: 'feature-flags'
+
+jobs:
+  fetch-env-a-configs:
+    runs-on: build-runner
+    timeout-minutes: 10
+    environment: aws-lz-${{ inputs.env_a }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install boto3
+      - name: Configures AWS credentials (${{ inputs.env_a }})
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          role-duration-seconds: 1200
+          role-session-name: github-${{github.job}}-${{github.run_id}}
+      - name: Fetch freeform (${{ inputs.env_a }})
+        run: python .github/scripts/appconfig/fetch.py
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APPCONFIG_APPLICATION_ID: ${{ env.PPRD_APPCONFIG_APPLICATION_ID }}
+          APPCONFIG_ENVIRONMENT_ID: ${{ inputs.env_a }}
+          PROFILE_ID: ${{ env.FREEFORM_PROFILE_ID }}
+          OUTPUT_FILE: ${{ inputs.env_a }}_freeform.json
+
+      - name: Fetch feature flags (${{ inputs.env_a }})
+        run: python .github/scripts/appconfig/fetch.py
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APPCONFIG_APPLICATION_ID: ${{ env.PPRD_APPCONFIG_APPLICATION_ID }}
+          APPCONFIG_ENVIRONMENT_ID: ${{ inputs.env_a }}
+          PROFILE_ID: ${{ env.FEATUREFLAGS_PROFILE_ID }}
+          OUTPUT_FILE: ${{ inputs.env_a }}_feature_flags.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.env_a }}-config
+          path: |
+            ${{ inputs.env_a }}_freeform.json
+            ${{ inputs.env_a }}_feature_flags.json
+
+  fetch-env-b-configs:
+    runs-on: build-runner
+    timeout-minutes: 10
+    environment: aws-lz-prd
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install boto3
+
+      - name: Configures AWS credentials (prd)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          role-duration-seconds: 1200
+          role-session-name: github-${{github.job}}-${{github.run_id}}
+      - name: Fetch freeform (prd)
+        run: python .github/scripts/appconfig/fetch.py
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APPCONFIG_APPLICATION_ID: ${{ env.PRD_APPCONFIG_APPLICATION_ID }}
+          APPCONFIG_ENVIRONMENT_ID: ${{ env.PRD_APPCONFIG_ENVIRONMENT_ID }}
+          PROFILE_ID: ${{ env.FREEFORM_PROFILE_ID }}
+          OUTPUT_FILE: prd_freeform.json
+
+      - name: Fetch flags (prd)
+        run: python .github/scripts/appconfig/fetch.py
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APPCONFIG_APPLICATION_ID: ${{ env.PRD_APPCONFIG_APPLICATION_ID }}
+          APPCONFIG_ENVIRONMENT_ID: ${{ env.PRD_APPCONFIG_ENVIRONMENT_ID }}
+          PROFILE_ID: ${{ env.FEATUREFLAGS_PROFILE_ID }}
+          OUTPUT_FILE: prd_feature_flags.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prd-config
+          path: |
+            prd_freeform.json
+            prd_feature_flags.json
+
+  compare:
+    runs-on: build-runner
+    timeout-minutes: 10
+    needs: [fetch-env-a-configs, fetch-env-b-configs]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pprd-config
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: prd-config
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run comparison
+        run: python .github/scripts/appconfig/compare.py
+        env:
+          OUTPUT_FILE: report.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comparison-report
+          path: |
+            report.html
