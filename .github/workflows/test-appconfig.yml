@@ -37,7 +37,7 @@ env:
   FEATUREFLAGS_PROFILE_ID: 'feature-flags'
 
 jobs:
-  fetch-env-a-configs:
+  fetch-${{ inputs.env_a }}-configs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-${{ inputs.env_a }}
@@ -81,7 +81,7 @@ jobs:
             ${{ inputs.env_a }}_freeform.json
             ${{ inputs.env_a }}_feature_flags.json
 
-  fetch-env-b-configs:
+  fetch-${{ inputs.env_b }}-configs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-prd
