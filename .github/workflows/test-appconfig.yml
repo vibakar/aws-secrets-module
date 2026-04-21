@@ -37,7 +37,7 @@ env:
   FEATUREFLAGS_PROFILE_ID: 'feature-flags'
 
 jobs:
-  fetch-${{ inputs.env_a }}-configs:
+  fetch-env-a-configs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-${{ inputs.env_a }}
@@ -81,7 +81,7 @@ jobs:
             ${{ inputs.env_a }}_freeform.json
             ${{ inputs.env_a }}_feature_flags.json
 
-  fetch-${{ inputs.env_b }}-configs:
+  fetch-env-b-configs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: aws-lz-prd
@@ -129,7 +129,7 @@ jobs:
   compare:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [fetch-${{ inputs.env_a }}-configs, fetch-${{ inputs.env_b }}-configs]
+    needs: [fetch-env-a-configs, fetch-env-b-configs]
 
     steps:
       - uses: actions/checkout@v4
